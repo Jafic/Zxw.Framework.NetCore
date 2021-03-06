@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace Zxw.Framework.NetCore.Models
 {
@@ -12,6 +10,8 @@ namespace Zxw.Framework.NetCore.Models
         /// 表名
         /// </summary>
         public string TableName { get; set; }
+
+        public string Alias { get; set; }
 
         /// <summary>
         /// 表说明
@@ -25,10 +25,12 @@ namespace Zxw.Framework.NetCore.Models
     [Serializable]
     public class DbTableColumn
     {
+        public string TableName{get;set;}
         /// <summary>
         /// 字段名
         /// </summary>
         public string ColName { get; set; }
+        public string Alias { get; set; }
         /// <summary>
         /// 是否自增
         /// </summary>
@@ -56,11 +58,19 @@ namespace Zxw.Framework.NetCore.Models
         /// <summary>
         /// 字段说明
         /// </summary>
-        public string Comment { get; set; }
+        public string Comments { get; set; }
 
         /// <summary>
         /// C#数据类型
         /// </summary>
         public string CSharpType { get; set; }
+        /// <summary>
+        /// 数据精度
+        /// </summary>
+        public int? DataPrecision { get; set; }
+        /// <summary>
+        /// 数据刻度
+        /// </summary>
+        public int? DataScale { get; set; }
     }
 }

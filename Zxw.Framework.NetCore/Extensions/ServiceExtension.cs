@@ -1,15 +1,26 @@
-﻿using System;
+﻿using AspectCore.Configuration;
+using AspectCore.Extensions.DependencyInjection;
+using CSRedis;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.DependencyInjection;
+using System;
+using System.IO;
 using System.Linq;
 using System.Reflection;
-using AspectCore.Extensions.DependencyInjection;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Mvc.ApplicationParts;
+using Microsoft.AspNetCore.Mvc.Controllers;
+using Zxw.Framework.NetCore.Cache;
+using Zxw.Framework.NetCore.DbContextCore;
 using Zxw.Framework.NetCore.Helpers;
-using AspectCore.Configuration;
-using AspectCore.Injector;
-using CSRedis;
-using Microsoft.Extensions.Caching.Distributed;
+using Zxw.Framework.NetCore.IDbContext;
 using Zxw.Framework.NetCore.IoC;
+using Zxw.Framework.NetCore.Options;
+using AspectCore.DependencyInjection;
+using AspectCore.DynamicProxy;
+using Zxw.Framework.NetCore.Web;
+using Zxw.Framework.NetCore.Attributes;
+using AspectCore.Extensions.Reflection;
 
 namespace Zxw.Framework.NetCore.Extensions
 {
@@ -281,34 +292,186 @@ namespace Zxw.Framework.NetCore.Extensions
             else
             {
                 //集群模式
-                redisClient = new CSRedisClient(null, redisConnectionStrings);
+                redisClient = new CSRedisClient(NodeRule: null, connectionStrings: redisConnectionStrings);
             }
             //初始化 RedisHelper
             RedisHelper.Initialization(redisClient);
             //注册mvc分布式缓存
             services.AddSingleton<IDistributedCache>(new Microsoft.Extensions.Caching.Redis.CSRedisCache(RedisHelper.Instance));
+            services.AddSingleton<IDistributedCacheManager, DistributedCacheManager>();
             return services;
         }
         public static IServiceProvider BuildAutofacServiceProvider(this IServiceCollection services)
         {
             if (services == null) throw new ArgumentNullException(nameof(services));
-            return AutofacContainer.Build(services);
+            return ServiceLocator.Current = AutofacContainer.Build(services);
         }
         public static IServiceProvider BuildAspectCoreWithAutofacServiceProvider(this IServiceCollection services, Action<IAspectConfiguration> configure = null)
         {
             if(services==null)throw new ArgumentNullException(nameof(services));
+            if (configure == null)
+            {
+                configure = config =>
+                {
+                    config.Interceptors.AddTyped<FromDbContextFactoryInterceptor>();
+                };
+            }
             services.ConfigureDynamicProxy(configure);
-            services.AddAspectCoreContainer();
-            return AutofacContainer.Build(services, configure);
+            return ServiceLocator.Current = AutofacContainer.Build(services, configure);
+        }
+
+        public static IServiceContext BuildAspectCoreServiceContainer(this IServiceCollection services,
+            Action<IAspectConfiguration> configure = null)
+        {
+            if (services == null) throw new ArgumentNullException(nameof(services));
+            if (configure == null)
+            {
+                configure = config =>
+                {
+                    config.Interceptors.AddTyped<FromDbContextFactoryInterceptor>();
+                };
+            }
+            services.AddAspectServiceContext();
+            services.ConfigureDynamicProxy(configure);
+            return services.ToServiceContext();
         }
 
         public static IServiceProvider BuildAspectCoreServiceProvider(this IServiceCollection services,
             Action<IAspectConfiguration> configure = null)
         {
-            if(services==null)throw new ArgumentNullException(nameof(services));
-            services.ConfigureDynamicProxy(configure);
-            services.AddAspectCoreContainer();
-            return services.ToServiceContainer().Build();
+            if (configure == null)
+            {
+                configure = config =>
+                {
+                    config.Interceptors.AddTyped<FromDbContextFactoryInterceptor>();
+                };
+            }
+            return ServiceLocator.Current = AspectCoreContainer.BuildServiceProvider(services, configure);
+        }
+
+        public static IServiceCollection AddDbContextFactory(this IServiceCollection services,
+            Action<DbContextFactory> action)
+        {
+            if (services == null) throw new ArgumentNullException(nameof(services));
+            var factory = DbContextFactory.Instance;
+            factory.ServiceCollection = services;
+            action?.Invoke(factory);
+
+            return factory.ServiceCollection;
+        }
+
+        public static object GetDbContext(this IServiceProvider provider, string dbContextTagName, Type serviceType)
+        {
+            if (provider == null) throw new ArgumentNullException(nameof(provider));
+            var implService = provider.GetRequiredService(serviceType); 
+            var option = provider.GetServices<DbContextOption>().FirstOrDefault(m => m.TagName == dbContextTagName);
+
+            var context = Activator.CreateInstance(implService.GetType(), option);
+
+            return context;
+        }
+
+        public static IServiceCollection AddDbContext<IT, T>(this IServiceCollection services, string tag,
+            string connectionString) where IT:class,IDbContextCore where T:BaseDbContext,IT
+        {
+            if (services == null) throw new ArgumentNullException(nameof(services));
+            return services.AddDbContext<IT, T>(new DbContextOption()
+            {
+                TagName = tag,
+                ConnectionString = connectionString
+            });
+        }
+
+        public static IServiceCollection AddDbContext<IT, T>(this IServiceCollection services, DbContextOption option) where IT:IDbContextCore where T:BaseDbContext,IT
+        {
+            if (services == null) throw new ArgumentNullException(nameof(services));
+            if (option == null) throw new ArgumentNullException(nameof(option));
+            //services.Configure<DbContextOption>(options =>
+            //{
+            //    options.IsOutputSql = option.IsOutputSql;
+            //    options.ConnectionString = option.ConnectionString;
+            //    options.ModelAssemblyName = option.ModelAssemblyName;
+            //    options.TagName = option.TagName;
+            //});
+            services.AddSingleton(option);
+            return services.AddDbContext<IT, T>();
+        }
+        /// <summary>
+        /// 添加自定义Controller。自定义controller项目对应的dll必须复制到程序运行目录
+        /// </summary>
+        /// <param name="builder"></param>
+        /// <param name="controllerAssemblyName">自定义controller文件的名称，比如：xxx.Controllers.dll</param>
+        /// <param name="filter"></param>
+        /// <returns></returns>
+        public static IMvcBuilder AddCustomController(this IMvcBuilder builder, string controllerAssemblyName,
+            Func<TypeInfo, bool> filter = null)
+        {
+            if (filter == null)
+                filter = m => true;
+            return builder.ConfigureApplicationPartManager(m =>
+            {
+                var feature = new ControllerFeature();
+                m.ApplicationParts.Add(new AssemblyPart(Assembly.LoadFile(AppDomain.CurrentDomain.BaseDirectory+controllerAssemblyName)));
+                m.PopulateFeature(feature);
+                builder.Services.AddSingleton(feature.Controllers.Where(filter).Select(t => t.AsType()).ToArray());
+            });
+        }
+        /// <summary>
+        /// 添加自定义Controller
+        /// </summary>
+        /// <param name="builder"></param>
+        /// <param name="controllerAssemblyDir">Controller文件所在路径</param>
+        /// <param name="controllerAssemblyName">Controller文件名称，比如：xxx.Controllers.dll</param>
+        /// <param name="filter"></param>
+        /// <returns></returns>
+        public static IMvcBuilder AddCustomController(this IMvcBuilder builder, string controllerAssemblyDir, string controllerAssemblyName,
+            Func<TypeInfo, bool> filter = null)
+        {
+            if (filter == null)
+                filter = m => true;
+            return builder.ConfigureApplicationPartManager(m =>
+            {
+                var feature = new ControllerFeature();
+                m.ApplicationParts.Add(
+                    new AssemblyPart(Assembly.LoadFile(Path.Combine(controllerAssemblyDir, controllerAssemblyName))));
+                m.PopulateFeature(feature);
+                builder.Services.AddSingleton(feature.Controllers.Where(filter).Select(t => t.AsType()).ToArray());
+            });
+        }
+
+        public static IServiceCollection AddDefaultWebContext(this IServiceCollection services)
+        {
+            return services.AddSingleton<IWebContext, WebContext>();
+        }
+
+        public static IServiceCollection AddWebContext<T>(this IServiceCollection services) where T:WebContext
+        {
+            services.Remove(new ServiceDescriptor(typeof(IWebContext), typeof(WebContext), ServiceLifetime.Singleton));
+            return services.AddSingleton<IWebContext, T>();
+        }
+
+        /// <summary>
+        /// 框架入口。默认开启注入实现了ISingletonDependency、IScopedDependency、ITransientDependency三种不同生命周期的类，以及AddHttpContextAccessor和AddDataProtection。
+        /// </summary>
+        /// <param name="services"></param>
+        /// <param name="config"></param>
+        /// <param name="aspectConfig"></param>
+        /// <returns></returns>
+        public static IServiceProvider AddCoreX(this IServiceCollection services, Action<IServiceCollection> config = null, Action<IAspectConfiguration> aspectConfig = null)
+        {
+            config?.Invoke(services);
+            services.RegisterServiceLifetimeDependencies();
+            services.AddHttpContextAccessor();
+            services.AddDataProtection();
+            services.AddDefaultWebContext();
+            if (aspectConfig == null)
+            {
+                aspectConfig = config =>
+                {
+                    config.Interceptors.AddTyped<FromDbContextFactoryInterceptor>();
+                };
+            }
+            return services.BuildAspectCoreServiceProvider(aspectConfig);
         }
     }
 }

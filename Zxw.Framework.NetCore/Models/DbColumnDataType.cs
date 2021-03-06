@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Net;
-using System.Net.NetworkInformation;
-using System.Text;
-using NpgsqlTypes;
+﻿using System.Collections.Generic;
 
 namespace Zxw.Framework.NetCore.Models
 {
@@ -41,7 +35,7 @@ namespace Zxw.Framework.NetCore.Models
             new DbColumnDataType(){ DatabaseType = DatabaseType.MSSQL, ColumnTypes = "bigint", CSharpType = "Int64"},
             new DbColumnDataType(){ DatabaseType = DatabaseType.MSSQL, ColumnTypes = "binary,image,varbinary(max),rowversion,timestamp,varbinary", CSharpType = "Byte[]"},
             new DbColumnDataType(){ DatabaseType = DatabaseType.MSSQL, ColumnTypes = "bit", CSharpType = "Boolean"},
-            new DbColumnDataType(){ DatabaseType = DatabaseType.MSSQL, ColumnTypes = "char,nchar,text,ntext,varchar,nvarchar", CSharpType = "String"},
+            new DbColumnDataType(){ DatabaseType = DatabaseType.MSSQL, ColumnTypes = "char,nchar,text,ntext,varchar,nvarchar,xml", CSharpType = "String"},
             new DbColumnDataType(){ DatabaseType = DatabaseType.MSSQL, ColumnTypes = "date,datetime,datetime2,smalldatetime", CSharpType ="DateTime"},
             new DbColumnDataType(){ DatabaseType = DatabaseType.MSSQL, ColumnTypes = "datetimeoffset", CSharpType ="DateTimeOffset"},
             new DbColumnDataType(){ DatabaseType = DatabaseType.MSSQL, ColumnTypes = "decimal,money,numeric,smallmoney", CSharpType ="Decimal"},
@@ -116,13 +110,20 @@ namespace Zxw.Framework.NetCore.Models
 
             #region Oracle, https://docs.oracle.com/cd/E14435_01/win.111/e10927/featUDTs.htm#CJABAEDD
 
-            new DbColumnDataType(){ DatabaseType = DatabaseType.Oracle, ColumnTypes = "BFILE,BLOB,RAW,LONG RAW", CSharpType ="Byte[]"},
-            new DbColumnDataType(){ DatabaseType = DatabaseType.Oracle, ColumnTypes = "CHAR, NCHAR, VARCHAR2, CLOB, NCLOB,NVARCHAR2,REF,XMLTYPE,ROWID,LONG", CSharpType ="String"},
-            new DbColumnDataType(){ DatabaseType = DatabaseType.Oracle, ColumnTypes = "BINARY FLOAT,BINARY DOUBLE", CSharpType ="System.Byte"},
-            new DbColumnDataType(){ DatabaseType = DatabaseType.Oracle, ColumnTypes = "INTERVAL YEAR TO MONTH", CSharpType ="Int32"},
-            new DbColumnDataType(){ DatabaseType = DatabaseType.Oracle, ColumnTypes = "FLOAT,INTEGER,NUMBER", CSharpType ="Decimal"},
-            new DbColumnDataType(){ DatabaseType = DatabaseType.Oracle, ColumnTypes = "DATE, TIMESTAMP, TIMESTAMP WITH LOCAL TIME ZONE,TIMESTAMP WITH TIME ZONE", CSharpType ="DateTime"},
-            new DbColumnDataType(){ DatabaseType = DatabaseType.Oracle, ColumnTypes = "INTERVAL DAY TO SECOND", CSharpType ="TimeSpan"},
+            new DbColumnDataType(){ DatabaseType = DatabaseType.Oracle, ColumnTypes = "BFILE,BLOB,NCLOB,CLOB,REFCURSOR", CSharpType ="Object"},
+            new DbColumnDataType(){ DatabaseType = DatabaseType.Oracle, ColumnTypes = "CHAR,NCHAR,VARCHAR2,NVARCHAR2,XMLTYPE,ROWID,LONG", CSharpType ="String"},
+            new DbColumnDataType(){ DatabaseType = DatabaseType.Oracle, ColumnTypes = "Byte", CSharpType ="Byte"},
+            new DbColumnDataType(){ DatabaseType = DatabaseType.Oracle, ColumnTypes = "LongRaw,Raw", CSharpType ="Binary"},
+            new DbColumnDataType(){ DatabaseType = DatabaseType.Oracle, ColumnTypes = "Decimal", CSharpType ="Decimal"},
+            new DbColumnDataType(){ DatabaseType = DatabaseType.Oracle, ColumnTypes = "Single", CSharpType ="Single"},
+            new DbColumnDataType(){ DatabaseType = DatabaseType.Oracle, ColumnTypes = "Double,FLOAT", CSharpType ="Double"},
+            new DbColumnDataType(){ DatabaseType = DatabaseType.Oracle, ColumnTypes = "Int16", CSharpType ="Int16"},
+            new DbColumnDataType(){ DatabaseType = DatabaseType.Oracle, ColumnTypes = "Int32", CSharpType ="Int32"},
+            new DbColumnDataType(){ DatabaseType = DatabaseType.Oracle, ColumnTypes = "Int64,IntervalYM", CSharpType ="Int64"},
+            new DbColumnDataType(){ DatabaseType = DatabaseType.Oracle, ColumnTypes = "DATE, TIMESTAMP, TimeStampLTZ,TimeStampTZ,TIMESTAMP(0),TIMESTAMP(1),TIMESTAMP(2),TIMESTAMP(3),TIMESTAMP(4),TIMESTAMP(5),TIMESTAMP(6),TIMESTAMP(7),TIMESTAMP(8),TIMESTAMP(9)", CSharpType ="DateTime"},
+            new DbColumnDataType(){ DatabaseType = DatabaseType.Oracle, ColumnTypes = "IntervalDS,INTERVAL DAY TO SECOND", CSharpType ="TimeSpan"},
+            new DbColumnDataType(){ DatabaseType = DatabaseType.Oracle, ColumnTypes = "NUMBER", CSharpType ="Decimal"},
+            new DbColumnDataType(){ DatabaseType = DatabaseType.Oracle, ColumnTypes = "ANYDATA", CSharpType ="Object"},
 
             #endregion
         };
